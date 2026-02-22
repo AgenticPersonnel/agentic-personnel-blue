@@ -1,63 +1,43 @@
+import { supabase } from '@/lib/supabase';
 import Container from '@/components/ui/Container';
+
+// Revalidate this page every hour so new posts appear without a full redeploy
+export const revalidate = 3600;
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { BlogPost } from '@/types';
 
-const featuredPost: BlogPost = {
-  title: "The SMB Owner's Guide to AI ROI: How to Calculate Real Value",
-  excerpt: "Learn the exact framework we use to help SMBs calculate potential AI returns and make informed investment decisions.",
-  slug: "smb-ai-roi-guide",
-  publishedAt: "2024-01-15",
-  readTime: 8,
-  category: "Strategy"
-};
+function calcReadTime(content: string | null): number {
+  if (!content) return 3;
+  const words = content.trim().split(/\s+/).length;
+  return Math.max(1, Math.round(words / 200));
+}
 
-const blogPosts: BlogPost[] = [
-  {
-    title: "10 AI Tasks Every Legal Firm Should Automate First",
-    excerpt: "Starting your AI journey? These are the highest-impact automation opportunities for legal practices.",
-    slug: "legal-ai-automation-priorities", 
-    publishedAt: "2024-01-12",
-    readTime: 6,
-    category: "Industry Guide"
-  },
-  {
-    title: "ChatGPT vs. Custom AI: When to Choose What",
-    excerpt: "Understanding when generic AI tools work and when you need custom solutions for your business.",
-    slug: "chatgpt-vs-custom-ai",
-    publishedAt: "2024-01-10", 
-    readTime: 5,
-    category: "Strategy"
-  },
-  {
-    title: "Small Business AI Security: What You Need to Know",
-    excerpt: "Protecting your data while implementing AI solutions - a practical guide for SMBs.",
-    slug: "small-business-ai-security",
-    publishedAt: "2024-01-08",
-    readTime: 7,
-    category: "Security"
-  },
-  {
-    title: "AI Implementation Timeline: What to Expect",
-    excerpt: "Realistic timelines for AI implementation and what happens at each stage of the process.",
-    slug: "ai-implementation-timeline",
-    publishedAt: "2024-01-05",
-    readTime: 4,
-    category: "Implementation"
-  },
-  {
-    title: "5 AI Myths That Are Costing SMBs Money",
-    excerpt: "Debunking common misconceptions that prevent small businesses from AI success.",
-    slug: "ai-myths-smb-costs", 
-    publishedAt: "2024-01-03",
-    readTime: 6,
-    category: "Education"
+function formatDate(dateStr: string | null, options: Intl.DateTimeFormatOptions): string {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleDateString('en-US', options);
+}
+
+export default async function BlogPage() {
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select('id, title, slug, meta_description, featured_image_url, status, season, publish_date, published_at, content')
+    .eq('status', 'published')
+    .order('publish_date', { ascending: false });
+
+  if (error) {
+    console.error('Supabase error fetching blog posts:', error);
   }
-];
 
-const categories = ["All", "Strategy", "Implementation", "Industry Guide", "Security", "Education"];
+  const posts: BlogPost[] = data ?? [];
+  const featuredPost = posts[0] ?? null;
+  const remainingPosts = posts.slice(1);
 
-export default function BlogPage() {
+  const categories = [
+    'All',
+    ...Array.from(new Set(posts.map((p) => p.season).filter(Boolean))) as string[],
+  ];
+
   return (
     <main className="pt-24">
       {/* Hero Section */}
@@ -77,117 +57,160 @@ export default function BlogPage() {
         </Container>
       </section>
 
-      {/* Featured Post */}
-      <section className="py-16">
-        <Container>
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Featured Article</h2>
-          </div>
-
-          <Card className="mb-16 overflow-hidden hover:shadow-xl transition-shadow">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="aspect-video bg-gray-200 flex items-center justify-center">
-                <span className="text-gray-500 font-medium">Featured Article Image</span>
+      {posts.length === 0 ? (
+        /* Empty state */
+        <section className="py-24">
+          <Container>
+            <div className="text-center max-w-xl mx-auto">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Articles coming soon</h2>
+              <p className="text-gray-600">
+                We&apos;re working on in-depth guides and case studies for SMBs. Check back soon.
+              </p>
+            </div>
+          </Container>
+        </section>
+      ) : (
+        <>
+          {/* Featured Post */}
+          <section className="py-16">
+            <Container>
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Featured Article</h2>
               </div>
-              <div className="p-6 lg:p-8">
-                <div className="flex items-center space-x-4 mb-4">
-                  <span className="bg-gray-900 text-white text-sm font-medium px-3 py-1 rounded-full">
-                    {featuredPost.category}
-                  </span>
-                  <span className="text-gray-500 text-sm">
-                    {featuredPost.readTime} min read
-                  </span>
+
+              <Card className="mb-16 overflow-hidden hover:shadow-xl transition-shadow">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="aspect-video bg-gray-200 flex items-center justify-center overflow-hidden">
+                    {featuredPost!.featured_image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={featuredPost!.featured_image_url}
+                        alt={featuredPost!.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-gray-500 font-medium">Featured Article Image</span>
+                    )}
+                  </div>
+                  <div className="p-6 lg:p-8">
+                    <div className="flex items-center space-x-4 mb-4">
+                      {featuredPost!.season && (
+                        <span className="bg-gray-900 text-white text-sm font-medium px-3 py-1 rounded-full">
+                          {featuredPost!.season}
+                        </span>
+                      )}
+                      <span className="text-gray-500 text-sm">
+                        {calcReadTime(featuredPost!.content)} min read
+                      </span>
+                    </div>
+                    <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">
+                      {featuredPost!.title}
+                    </h3>
+                    {featuredPost!.meta_description && (
+                      <p className="text-gray-600 mb-6 leading-relaxed">
+                        {featuredPost!.meta_description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-500 text-sm">
+                        {formatDate(featuredPost!.publish_date ?? featuredPost!.published_at, {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </span>
+                      <Button variant="primary" size="md">
+                        Read Article
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">
-                  {featuredPost.title}
-                </h3>
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  {featuredPost.excerpt}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500 text-sm">
-                    {new Date(featuredPost.publishedAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long', 
-                      day: 'numeric'
-                    })}
-                  </span>
-                  <Button variant="primary" size="md">
-                    Read Article
+              </Card>
+            </Container>
+          </section>
+
+          {/* Category Filter */}
+          {categories.length > 1 && (
+            <section className="py-8 bg-white border-b border-gray-200">
+              <Container>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((category) => (
+                    <Button
+                      key={category}
+                      variant={category === 'All' ? 'primary' : 'ghost'}
+                      size="sm"
+                    >
+                      {category}
+                    </Button>
+                  ))}
+                </div>
+              </Container>
+            </section>
+          )}
+
+          {/* Blog Posts Grid */}
+          {remainingPosts.length > 0 && (
+            <section className="py-24">
+              <Container>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {remainingPosts.map((post) => (
+                    <Card key={post.id} className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
+                      <div className="aspect-video bg-gray-200 rounded-t-lg overflow-hidden">
+                        {post.featured_image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={post.featured_image_url}
+                            alt={post.title}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <CardHeader>
+                        <div className="flex items-center justify-between mb-3">
+                          {post.season && (
+                            <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-1 rounded-full">
+                              {post.season}
+                            </span>
+                          )}
+                          <span className="text-gray-500 text-sm">
+                            {calcReadTime(post.content)} min read
+                          </span>
+                        </div>
+                        <CardTitle className="text-xl group-hover:text-gray-700 transition-colors leading-tight">
+                          {post.title}
+                        </CardTitle>
+                        {post.meta_description && (
+                          <CardDescription>{post.meta_description}</CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500 text-sm">
+                            {formatDate(post.publish_date ?? post.published_at, {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </span>
+                          <Button variant="ghost" size="sm">
+                            Read More →
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="text-center mt-12">
+                  <Button variant="outline" size="lg">
+                    Load More Articles
                   </Button>
                 </div>
-              </div>
-            </div>
-          </Card>
-        </Container>
-      </section>
-
-      {/* Category Filter */}
-      <section className="py-8 bg-white border-b border-gray-200">
-        <Container>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <Button 
-                key={category}
-                variant={category === "All" ? "primary" : "ghost"}
-                size="sm"
-              >
-                {category}
-              </Button>
-            ))}
-          </div>
-        </Container>
-      </section>
-
-      {/* Blog Posts Grid */}
-      <section className="py-24">
-        <Container>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {blogPosts.map((post, index) => (
-              <Card key={index} className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
-                <div className="aspect-video bg-gray-200 rounded-t-lg"></div>
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-1 rounded-full">
-                      {post.category}
-                    </span>
-                    <span className="text-gray-500 text-sm">
-                      {post.readTime} min read
-                    </span>
-                  </div>
-                  <CardTitle className="text-xl group-hover:text-gray-700 transition-colors leading-tight">
-                    {post.title}
-                  </CardTitle>
-                  <CardDescription>
-                    {post.excerpt}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500 text-sm">
-                      {new Date(post.publishedAt).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </span>
-                    <Button variant="ghost" size="sm">
-                      Read More →
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Load More */}
-          <div className="text-center mt-12">
-            <Button variant="outline" size="lg">
-              Load More Articles
-            </Button>
-          </div>
-        </Container>
-      </section>
+              </Container>
+            </section>
+          )}
+        </>
+      )}
 
       {/* Newsletter CTA */}
       <section className="py-16 bg-gray-50">
@@ -199,7 +222,7 @@ export default function BlogPage() {
             <p className="text-xl text-gray-600 mb-8">
               Get our latest AI insights and strategies delivered to your inbox weekly.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
               <input
                 type="email"

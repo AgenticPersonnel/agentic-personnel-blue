@@ -38,12 +38,16 @@ export interface Resource {
 }
 
 export interface BlogPost {
+  id: string;
   title: string;
-  excerpt: string;
   slug: string;
-  publishedAt: string;
-  readTime: number;
-  category: string;
+  meta_description: string | null;
+  featured_image_url: string | null;
+  status: string;
+  season: string | null;
+  publish_date: string | null;
+  published_at: string | null;
+  content: string | null;
 }
 
 export interface ButtonVariant {
