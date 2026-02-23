@@ -75,8 +75,8 @@ export default function WorkflowSection() {
     '/01_discover_card_v2.webp',
     '/02_design_solutions_card.webp',
     '/03_development_build_card.webp',
-    '/04_training_implementation_card.png',
-    '/05_customer_success_support_card.png',
+    '/04_training_implementation_card.webp',
+    '/05_customer_success_support_card.webp',
   ];
 
   // State to track which arrow is currently at center

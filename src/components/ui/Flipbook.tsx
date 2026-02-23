@@ -24,8 +24,8 @@ export default function Flipbook({ images, interval = 4500, className = '' }: Fl
     { title: 'Discover', image: '/01_discover_card_v2.webp' },
     { title: 'Design', image: '/02_design_solutions_card.webp' },
     { title: 'Develop', image: '/03_development_build_card.webp' },
-    { title: 'Deploy', image: '/04_training_implementation_card.png' },
-    { title: 'Deliver', image: '/05_customer_success_support_card.png' }
+    { title: 'Deploy', image: '/04_training_implementation_card.webp' },
+    { title: 'Deliver', image: '/05_customer_success_support_card.webp' }
   ];
 
   useEffect(() => {
